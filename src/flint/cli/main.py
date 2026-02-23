@@ -1,6 +1,6 @@
 import typer
 from rich.console import Console
-from flint.cli import model, prompt, serve, bench
+from flint.cli import model, prompt, serve, bench, code, git
 from flint import __version__
 
 app = typer.Typer(
@@ -21,6 +21,9 @@ app.command(name="list")(model.list_models)
 app.command(name="run")(model.run)
 app.command(name="serve")(serve.serve)
 app.command(name="bench")(bench.bench)
+app.command(name="code")(code.code)
+app.command(name="commit")(git.generate_commit)
+app.command(name="review")(git.code_review)
 
 @app.callback(invoke_without_command=True)
 def main(
