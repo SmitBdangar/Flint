@@ -24,7 +24,10 @@ class GenerationWorker(QThread):
         except Exception as e:
             self.error_occurred.emit(str(e))
         finally:
-            self.finished_generation.emit()
+            try:
+                loop.run_until_complete(loop.shutdown_asyncgens())
+            except Exception:
+                pass
             loop.close()
 
     async def _generate_stream(self, backend):

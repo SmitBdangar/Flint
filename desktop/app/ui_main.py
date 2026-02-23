@@ -193,7 +193,7 @@ class MainWindow(QMainWindow):
         )
         self.worker.chunk_received.connect(self.handle_chunk)
         self.worker.error_occurred.connect(self.handle_error)
-        self.worker.finished_generation.connect(self.handle_finished)
+        self.worker.finished.connect(self.handle_finished)
         self.worker.start()
 
     def handle_chunk(self, chunk: str):
@@ -213,7 +213,9 @@ class MainWindow(QMainWindow):
         self.chat_history.append("<br><br>")
         self.scrollToBottom()
         self.send_btn.setEnabled(True)
-        self.worker = None
+        if self.worker:
+            self.worker.deleteLater()
+            self.worker = None
 
     def scrollToBottom(self):
         scrollbar = self.chat_history.verticalScrollBar()
