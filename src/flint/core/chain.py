@@ -46,9 +46,9 @@ class Chain:
                 if not current_text:
                     raise ValueError(f"Model step at index {idx} requires a preceding Prompt step to generate text.")
                 
-                # Temporary: hardcoded backend instantiation for v0.1 demo code logic
-                # Ideally, this comes from a backend registry based on step.backend_name
-                backend = OllamaBackend()
+                # Use dynamic backend registry
+                from flint.backends import get_backend
+                backend = get_backend(step.backend_name)
                 
                 # The generate call returns string text
                 model_output = await backend.generate(prompt=current_text, model_name=step.name)

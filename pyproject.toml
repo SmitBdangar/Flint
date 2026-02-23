@@ -40,12 +40,17 @@ dev = [
     "flake8>=6.0",
     "pre-commit"
 ]
+desktop = [
+    "PySide6>=6.5.0",
+]
 
 [project.scripts]
 flint = "flint.cli.main:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/flint"]
+packages = [
+    "src/flint"
+]
 
 [tool.black]
 line-length = 88
