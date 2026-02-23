@@ -3,7 +3,7 @@ import asyncio
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QComboBox, QTextEdit, QPushButton, QLabel, QSplitter,
-    QScrollArea
+    QScrollArea, QFileDialog
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QTextCursor
@@ -113,7 +113,13 @@ class MainWindow(QMainWindow):
         self.chat_history.append("<b>Flint Desktop</b><br>Welcome! Select a model and start chatting.<br><br>")
         chat_layout.addWidget(self.chat_history, stretch=1)
 
-        # Input Area
+        # Input Area Container
+        input_container_layout = QVBoxLayout()
+        
+        # We store files attached for the current context
+        self.attached_files = []
+        
+        # Input Text Box
         input_layout = QHBoxLayout()
         self.input_box = QTextEdit()
         self.input_box.setFixedHeight(100)
@@ -124,8 +130,34 @@ class MainWindow(QMainWindow):
         self.send_btn.setFixedSize(80, 100)
         self.send_btn.clicked.connect(self.handle_send)
         input_layout.addWidget(self.send_btn)
+        
+        input_container_layout.addLayout(input_layout)
+        
+        # Tools bar underneath
+        tools_layout = QHBoxLayout()
+        self.attach_btn = QPushButton("📎 Attach File")
+        self.attach_btn.setFixedSize(120, 30)
+        self.attach_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d3d;
+                font-size: 11px;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: #4d4d4d;
+            }
+        """)
+        self.attach_btn.clicked.connect(self.handle_attach)
+        tools_layout.addWidget(self.attach_btn)
+        
+        self.attached_files_label = QLabel()
+        self.attached_files_label.setStyleSheet("font-size: 11px; color: #888888;")
+        tools_layout.addWidget(self.attached_files_label)
+        
+        tools_layout.addStretch()
+        input_container_layout.addLayout(tools_layout)
 
-        chat_layout.addLayout(input_layout)
+        chat_layout.addLayout(input_container_layout)
         self.splitter.addWidget(self.chat_widget)
 
     def populate_models(self):
@@ -169,25 +201,65 @@ class MainWindow(QMainWindow):
             self.refresh_btn.setEnabled(True)
             self.send_btn.setEnabled(True)
 
+    def handle_attach(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select File to Attach")
+        if file_path:
+            self.attached_files.append(file_path)
+            # Update label
+            filenames = [f.split("/")[-1] for f in self.attached_files]
+            self.attached_files_label.setText("Attached: " + ", ".join(filenames))
+
     def handle_send(self):
         model_data = self.model_combo.currentData()
         prompt = self.input_box.toPlainText().strip()
 
-        if not model_data or not prompt:
+        if not model_data or (not prompt and not self.attached_files):
             return
 
         # Disable inputs during generation
         self.input_box.clear()
         self.send_btn.setEnabled(False)
+        self.attach_btn.setEnabled(False)
+        
+        # Build context from attached files
+        context_block = ""
+        if self.attached_files:
+            context_block += "I am attaching the following files for context:\n\n"
+            for file_path in self.attached_files:
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    filename = file_path.split("/")[-1]
+                    context_block += f"--- BEGIN FILE: {filename} ---\n{content}\n--- END FILE: {filename} ---\n\n"
+                except Exception as e:
+                    self.chat_history.append(f"<b style='color: red;'>Warning: Could not read file {file_path}: {e}</b><br>")
+            
+            # Append the actual user prompt
+            if prompt:
+                context_block += f"My prompt:\n{prompt}"
+        else:
+            context_block = prompt
+            
+        # Display the shortened version to user so chat isn't clustered with massive file text
+        display_prompt = prompt
+        if self.attached_files:
+            filenames = [f.split("/")[-1] for f in self.attached_files]
+            display_prompt = f"<i>[Attached: {', '.join(filenames)}]</i><br>" + display_prompt
+        
+        # Clear attached files state
+        self.attached_files = []
+        self.attached_files_label.setText("")
         
         # Append User Message
-        self.chat_history.append(f"<b style='color: #4daafc;'>You:</b><br>{prompt}<br><br>")
+        self.chat_history.append(f"<b style='color: #4daafc;'>You:</b><br>{display_prompt}<br><br>")
         self.chat_history.append(f"<b style='color: #4daafc;'>{model_data.name} ({model_data.backend_name}):</b><br>")
         self.scrollToBottom()
 
-        # Start QThread worker for generation
+        self.current_ai_message = ""
+
+        # Start QThread worker for generation (send the full context_block to LLM)
         self.worker = GenerationWorker(
-            prompt=prompt,
+            prompt=context_block,
             model_name=model_data.name,
             backend_name=model_data.backend_name
         )
@@ -197,10 +269,12 @@ class MainWindow(QMainWindow):
         self.worker.start()
 
     def handle_chunk(self, chunk: str):
-        # We append directly instead of line break
-        text_cursor = self.chat_history.textCursor()
-        text_cursor.movePosition(QTextCursor.End)
-        self.chat_history.setTextCursor(text_cursor)
+        self.current_ai_message += chunk
+        # Update dynamically without rendering full markdown every token for performance
+        # We replace the entire block of the current AI message
+        cursor = self.chat_history.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        self.chat_history.setTextCursor(cursor)
         self.chat_history.insertPlainText(chunk)
         self.scrollToBottom()
 
@@ -209,10 +283,36 @@ class MainWindow(QMainWindow):
         self.scrollToBottom()
 
     def handle_finished(self):
-        # End of assistant message formatting
-        self.chat_history.append("<br><br>")
+        # When fully done, re-render the entire message nicely formatting code blocks
+        import markdown
+        
+        # We need to find the start of the current message in the chat history
+        # A simpler approach in v1.1 is just appending the rendered HTML
+        # However, because we already inserted plaintext token-by-token, we 
+        # need to replace the plaintext block. 
+        # Let's use a simpler mechanism: we will clear the current raw text we just typed
+        cursor = self.chat_history.textCursor()
+        # Move back by the length of the string we appended
+        cursor.movePosition(QTextCursor.Left, QTextCursor.KeepAnchor, len(self.current_ai_message))
+        cursor.removeSelectedText()
+        
+        # Convert markdown code blocks to HTML with syntax styles
+        # Add basic styling to code blocks for Qt's rich text renderer
+        html = markdown.markdown(self.current_ai_message, extensions=['fenced_code', 'tables'])
+        
+        # Inject custom CSS style into the block to make pre/code look good in Qt
+        styled_html = f"""
+        <div style="font-family: 'Segoe UI', Arial, sans-serif;">
+            {html.replace('<pre>', '<pre style="background-color: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 5px; border: 1px solid #3d3d3d;">')
+                 .replace('<code>', '<code style="background-color: #1e1e1e; padding: 2px 4px; border-radius: 3px; font-family: Consolas, monospace;">')}
+        </div>
+        """
+        
+        self.chat_history.append(styled_html)
+        self.chat_history.append("<br>")
         self.scrollToBottom()
         self.send_btn.setEnabled(True)
+        self.attach_btn.setEnabled(True)
         if self.worker:
             self.worker.deleteLater()
             self.worker = None
