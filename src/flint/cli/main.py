@@ -1,6 +1,6 @@
 import typer
 from rich.console import Console
-from flint.cli import model, prompt, serve, bench, code, git
+from flint.cli import model, prompt, serve, bench, code, git, memory
 from flint import __version__
 
 app = typer.Typer(
@@ -14,6 +14,7 @@ console = Console()
 
 # Add sub-commands
 app.add_typer(prompt.app, name="prompt", help="Manage and run prompt templates.")
+app.add_typer(memory.app, name="memory")
 
 # Add top-level commands from modules
 app.command(name="pull")(model.pull)

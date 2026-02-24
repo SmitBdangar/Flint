@@ -10,6 +10,7 @@ from flint.core.model import Model
 
 class OllamaBackend(BaseBackend):
     def __init__(self, base_url: str = "http://localhost:11434"):
+        super().__init__()
         self.base_url = base_url.rstrip("/")
 
     @property

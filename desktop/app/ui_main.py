@@ -266,38 +266,65 @@ class MainWindow(QMainWindow):
         self.refresh_btn.setEnabled(False)
         self.send_btn.setEnabled(False)
 
-        # Fire and forget async call inside standard Qt GUI using a wrapper or loop
-        # Since we are in the main UI thread, we can run a simple asyncio event loop locally just to fetch initial data, 
-        # or use standard PySide QThread. For fetching lists, let's keep it simple with asyncio.run wrapper since list shouldn't be long blocking
-        def fetch():
-            backends = get_all_backends()
-            async def _fetch():
-                tasks = [b.list_models() for b in backends]
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-                all_models = []
-                for res in results:
-                    if isinstance(res, list):
-                        all_models.extend(res)
-                return all_models
-            return asyncio.run(_fetch())
+        # Use a QThread to fetch models so we don't block or break the async event loop
         
-        # Normally should be threaded, but list_models is fast enough locally for v0.1
-        try:
-            models = fetch()
+        # Define a single-use worker inline so we don't pollute the global scope
+        from PySide6.QtCore import QThread, Signal
+        
+        class ModelFetchWorker(QThread):
+            models_fetched = Signal(list)
+            error_occurred = Signal(str)
+
+            def run(self):
+                try:
+                    backends = get_all_backends()
+                    
+                    async def _fetch():
+                        tasks = [b.list_models() for b in backends]
+                        results = await asyncio.gather(*tasks, return_exceptions=True)
+                        all_models = []
+                        for res in results:
+                            if isinstance(res, list):
+                                all_models.extend(res)
+                        return all_models
+                        
+                    # Standard asyncio event loop safe inside a QThread run() method
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    models = loop.run_until_complete(_fetch())
+                    loop.close()
+                    
+                    self.models_fetched.emit(models)
+                except Exception as e:
+                    self.error_occurred.emit(str(e))
+                    
+        def on_models_fetched(models):
             self.model_combo.clear()
             if not models:
                 self.model_combo.addItem("No models found", userData=None)
             else:
                 for m in models:
                     self.model_combo.addItem(f"{m.name} ({m.backend_name})", userData=m)
-        except Exception as e:
+            self._cleanup_fetcher()
+
+        def on_models_error(err):
             self.model_combo.clear()
             self.model_combo.addItem("Error loading models", userData=None)
-            print(f"Error fetching models: {e}")
-        finally:
-            self.model_combo.setEnabled(True)
-            self.refresh_btn.setEnabled(True)
-            self.send_btn.setEnabled(True)
+            print(f"Error fetching models: {err}")
+            self._cleanup_fetcher()
+
+        self._fetch_worker = ModelFetchWorker(self)
+        self._fetch_worker.models_fetched.connect(on_models_fetched)
+        self._fetch_worker.error_occurred.connect(on_models_error)
+        self._fetch_worker.start()
+
+    def _cleanup_fetcher(self):
+        self.model_combo.setEnabled(True)
+        self.refresh_btn.setEnabled(True)
+        self.send_btn.setEnabled(True)
+        if hasattr(self, '_fetch_worker') and self._fetch_worker:
+            self._fetch_worker.deleteLater()
+            self._fetch_worker = None
 
     def handle_attach(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Select File to Attach")
