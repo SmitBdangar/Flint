@@ -3,8 +3,13 @@ import asyncio
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QComboBox, QTextEdit, QPushButton, QLabel, QSplitter,
-    QScrollArea, QFileDialog
+    QScrollArea, QFileDialog, QCheckBox
 )
+
+try:
+    from memory.vector_store import VectorStore
+except ImportError:
+    VectorStore = None
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QTextCursor
 
@@ -211,6 +216,13 @@ class MainWindow(QMainWindow):
         self.attach_btn.clicked.connect(self.handle_attach)
         tools_layout.addWidget(self.attach_btn)
         
+        self.memory_checkbox = QCheckBox("🧠 Codebase Memory")
+        self.memory_checkbox.setStyleSheet("color: #ececec; font-size: 13px; margin-left: 10px; spacing: 5px;")
+        if VectorStore is None:
+            self.memory_checkbox.setEnabled(False)
+            self.memory_checkbox.setToolTip("Install chromadb and tiktoken to enable memory.")
+        tools_layout.addWidget(self.memory_checkbox)
+        
         self.attached_files_label = QLabel()
         self.attached_files_label.setStyleSheet("font-size: 11px; color: #ececec;")
         tools_layout.addWidget(self.attached_files_label)
@@ -345,11 +357,31 @@ class MainWindow(QMainWindow):
         self.input_box.clear()
         self.send_btn.setEnabled(False)
         self.attach_btn.setEnabled(False)
+        if hasattr(self, 'memory_checkbox'):
+            self.memory_checkbox.setEnabled(False)
         
-        # Build context from attached files
+        # Build context from memory and attached files
         context_block = ""
+        
+        # 1. Codebase Memory
+        if hasattr(self, 'memory_checkbox') and self.memory_checkbox.isChecked() and VectorStore is not None:
+            try:
+                self.chat_history.append(f"<div style='color: #676767; font-size: 11px; font-style: italic; margin-bottom: 5px;'>Searching codebase memory for '{prompt}'...</div>")
+                
+                store = VectorStore()
+                results = store.search(prompt, k=4)
+                if results:
+                    context_block += "I am providing the following code snippets from the local codebase vector database as context:\n\n"
+                    for res in results:
+                        meta = res.get('metadata', {})
+                        doc = res.get('document', '')
+                        context_block += f"--- FILE: {meta.get('file', 'Unknown')} ---\n{doc}\n\n"
+            except Exception as e:
+                self.chat_history.append(f"<b style='color: red;'>Memory Search Error: {e}</b><br>")
+
+        # 2. Attached Files
         if self.attached_files:
-            context_block += "I am attaching the following files for context:\n\n"
+            context_block += "I am attaching the following specific files for context as well:\n\n"
             for file_path in self.attached_files:
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
@@ -358,10 +390,10 @@ class MainWindow(QMainWindow):
                     context_block += f"--- BEGIN FILE: {filename} ---\n{content}\n--- END FILE: {filename} ---\n\n"
                 except Exception as e:
                     self.chat_history.append(f"<b style='color: red;'>Warning: Could not read file {file_path}: {e}</b><br>")
-            
-            # Append the actual user prompt
-            if prompt:
-                context_block += f"My prompt:\n{prompt}"
+                    
+        # 3. Final Prompt Assembly
+        if context_block:
+            context_block += f"My instructions/prompt:\n{prompt}"
         else:
             context_block = prompt
             
@@ -451,6 +483,8 @@ class MainWindow(QMainWindow):
         self.scrollToBottom()
         self.send_btn.setEnabled(True)
         self.attach_btn.setEnabled(True)
+        if hasattr(self, 'memory_checkbox'):
+            self.memory_checkbox.setEnabled(True)
         if self.worker:
             self.worker.deleteLater()
             self.worker = None
