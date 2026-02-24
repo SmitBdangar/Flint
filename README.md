@@ -1,8 +1,5 @@
 # FLINT
 
-## SYNOPSIS
-`flint` [*COMMAND*] [*OPTIONS*]
-
 ## DESCRIPTION
 **Flint** is a local-first, terminal-native AI development toolkit. It provides seamless abstractions over local inference engines (Ollama, LM Studio) and equips engineers with autonomous inline coding capabilities, semantic repository memory (RAG), and a rapid prototyping Desktop GUI.
 
