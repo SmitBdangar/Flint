@@ -19,7 +19,7 @@ def bench(
     model_list = [m.strip() for m in models.split(",")]
     backend = OllamaBackend()
     
-    console.print(f"🏃 Starting Benchmark: [bold]{task}[/bold] across {len(model_list)} models")
+    console.print(f" Starting Benchmark: [bold]{task}[/bold] across {len(model_list)} models")
     
     # Very simple stub benchmark logic to measure tokens/sec roughly
     prompt = "Explain quantum computing in exactly 50 words."

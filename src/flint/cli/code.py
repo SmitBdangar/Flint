@@ -29,19 +29,19 @@ def code(
     Autonomous inline coder. Reads a file and overwrites it with AI modifications.
     """
     if not file_path.exists() or not file_path.is_file():
-        console.print(f"❌ [bold red]Error:[/bold red] The file '{file_path}' does not exist.")
+        console.print(f" [bold red]Error:[/bold red] The file '{file_path}' does not exist.")
         raise typer.Exit(1)
 
     try:
         backend = get_backend(backend_name)
     except ValueError as e:
-        console.print(f"❌ [bold red]Error:[/bold red] {e}")
+        console.print(f" [bold red]Error:[/bold red] {e}")
         raise typer.Exit(1)
 
     with open(file_path, "r", encoding="utf-8") as f:
         file_content = f.read()
 
-    console.print(f"🤖 [bold cyan]flint code[/bold cyan]: Modifying [green]{file_path.name}[/green] via {backend.name} ({model_name})...")
+    console.print(f" [bold cyan]flint code[/bold cyan]: Modifying [green]{file_path.name}[/green] via {backend.name} ({model_name})...")
 
     system_prompt = (
         "You are an expert software developer. "
@@ -68,14 +68,14 @@ def code(
             
             # Simple safety check: if the model returned nothing or just garbage
             if not new_code:
-                 console.print("❌ [bold red]Error:[/bold red] The model returned an empty script.")
+                 console.print(" [bold red]Error:[/bold red] The model returned an empty script.")
                  raise typer.Exit(1)
 
             # Overwrite file
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(new_code)
                 
-            console.print(f"✅ Success! In-place modification written to [bold green]{file_path}[/bold green].")
+            console.print(f" Success! In-place modification written to [bold green]{file_path}[/bold green].")
             
         except Exception as e:
             console.print(f"\n[red]Error generating code:[/red] {e}")

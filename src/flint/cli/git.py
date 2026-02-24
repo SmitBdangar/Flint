@@ -14,10 +14,10 @@ def _get_git_diff(staged: bool = True) -> str:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         return result.stdout.strip()
     except subprocess.CalledProcessError as e:
-        console.print("❌ [bold red]Error running git diff.[/bold red] Ensure this is a git repository.")
+        console.print(" [bold red]Error running git diff.[/bold red] Ensure this is a git repository.")
         raise typer.Exit(1)
     except FileNotFoundError:
-        console.print("❌ [bold red]Git not found.[/bold red] Please ensure git is installed and in your PATH.")
+        console.print(" [bold red]Git not found.[/bold red] Please ensure git is installed and in your PATH.")
         raise typer.Exit(1)
 
 @app.command("commit")
@@ -34,18 +34,18 @@ def generate_commit(
         # Fallback to unstaged logic if absolutely nothing is staged to be helpful
         diff_unstaged = _get_git_diff(staged=False)
         if diff_unstaged:
-            console.print("⚠️ [yellow]You have no staged changes, but you have unstaged changes.[/yellow] Please `git add` the files you want to commit first.")
+            console.print(" [yellow]You have no staged changes, but you have unstaged changes.[/yellow] Please `git add` the files you want to commit first.")
         else:
-            console.print("ℹ️ [cyan]No changes found to commit.[/cyan]")
+            console.print("[cyan]No changes found to commit.[/cyan]")
         raise typer.Exit(0)
     
     try:
         backend = get_backend(backend_name)
     except ValueError as e:
-        console.print(f"❌ [bold red]Error:[/bold red] {e}")
+        console.print(f" [bold red]Error:[/bold red] {e}")
         raise typer.Exit(1)
         
-    console.print(f"🤖 Analyzing git diff with {backend.name} ({model_name})...")
+    console.print(f" Analyzing git diff with {backend.name} ({model_name})...")
         
     system_prompt = (
         "You are an expert developer. You are analyzing a git diff and writing a concise, "
@@ -77,15 +77,15 @@ def generate_commit(
             if auto_commit:
                 result = subprocess.run(["git", "commit", "-m", commit_message], capture_output=True, text=True)
                 if result.returncode == 0:
-                     console.print("✅ [bold green]Successfully committed![/bold green]")
+                     console.print(" [bold green]Successfully committed![/bold green]")
                 else:
-                     console.print(f"❌ [bold red]Git commit failed:[/bold red]\n{result.stderr}")
+                     console.print(f" [bold red]Git commit failed:[/bold red]\n{result.stderr}")
             elif typer.confirm("Would you like to commit with this message now?"):
                  result = subprocess.run(["git", "commit", "-m", commit_message], capture_output=True, text=True)
                  if result.returncode == 0:
-                      console.print("✅ [bold green]Successfully committed![/bold green]")
+                      console.print(" [bold green]Successfully committed![/bold green]")
                  else:
-                      console.print(f"❌ [bold red]Git commit failed:[/bold red]\n{result.stderr}")
+                      console.print(f" [bold red]Git commit failed:[/bold red]\n{result.stderr}")
                       
         except Exception as e:
             console.print(f"\n[red]Error generating commit message:[/red] {e}")
@@ -104,16 +104,16 @@ def code_review(
     """
     diff = _get_git_diff(staged=staged_only)
     if not diff:
-        console.print("ℹ️ [cyan]No changes found to review.[/cyan]")
+        console.print("[cyan]No changes found to review.[/cyan]")
         raise typer.Exit(0)
         
     try:
         backend = get_backend(backend_name)
     except ValueError as e:
-        console.print(f"❌ [bold red]Error:[/bold red] {e}")
+        console.print(f" [bold red]Error:[/bold red] {e}")
         raise typer.Exit(1)
         
-    console.print(f"🧐 Reviewing code with {backend.name} ({model_name})...\n")
+    console.print(f" Reviewing code with {backend.name} ({model_name})...\n")
         
     system_prompt = (
         "You are an expert senior software engineer reviewing code changes.\n"

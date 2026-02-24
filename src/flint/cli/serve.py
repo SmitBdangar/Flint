@@ -13,8 +13,8 @@ def serve(
     """
     Spin up an OpenAI-compatible REST API in front of the local model.
     """
-    console.print(f"🚀 Starting OpenAI-compatible API Server on http://{host}:{port}/v1")
-    console.print(f"🧠 Default model routing to: [bold cyan]{model}[/bold cyan]")
+    console.print(f" Starting OpenAI-compatible API Server on http://{host}:{port}/v1")
+    console.print(f" Default model routing to: [bold cyan]{model}[/bold cyan]")
     
     # In a full implementation, this uses uvicorn and fastapi:
     # import uvicorn

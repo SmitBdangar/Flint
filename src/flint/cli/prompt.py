@@ -17,9 +17,9 @@ def save_prompt(name: str, file_path: str):
     try:
         p = Prompt.load(file_path)
         p.save(name)
-        console.print(f"✅ Saved prompt template [bold green]{name}[/bold green] from {file_path}")
+        console.print(f" Saved prompt template [bold green]{name}[/bold green] from {file_path}")
     except FileNotFoundError:
-        console.print(f"❌ Could not find file {file_path}")
+        console.print(f" Could not find file {file_path}")
         raise typer.Exit(1)
 
 @app.command("run")
@@ -41,13 +41,13 @@ def run_prompt(
         p = Prompt.load(name)
         formatted_prompt = p.format(**kwargs)
     except Exception as e:
-        console.print(f"❌ Failed to load/format prompt: {e}")
+        console.print(f" Failed to load/format prompt: {e}")
         raise typer.Exit(1)
         
     backend = OllamaBackend()
     
     async def _run():
-        console.print(f"🤖 Running [bold cyan]{model}[/bold cyan] with prompt '{name}'...")
+        console.print(f" Running [bold cyan]{model}[/bold cyan] with prompt '{name}'...")
         try:
             async for chunk in backend.generate_stream(formatted_prompt, model):
                 console.print(chunk, end="")

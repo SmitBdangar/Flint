@@ -17,19 +17,19 @@ def pull(model_name: str = typer.Argument(..., help="Name of the model to pull (
     try:
         backend = get_backend(backend_name)
     except ValueError as e:
-        console.print(f"❌ [bold red]Error:[/bold red] {e}")
+        console.print(f" [bold red]Error:[/bold red] {e}")
         raise typer.Exit(1)
         
-    console.print(f"📥 Pulling model [bold cyan]{model_name}[/bold cyan] via {backend.name}...")
+    console.print(f" Pulling model [bold cyan]{model_name}[/bold cyan] via {backend.name}...")
     
     # In v0.1 we only support native pulling via Ollama CLI wrapper
     if backend.name == "ollama":
         import subprocess
         result = subprocess.run(["ollama", "pull", model_name], capture_output=False)
         if result.returncode == 0:
-            console.print(f"✅ Successfully pulled [bold green]{model_name}[/bold green].")
+            console.print(f" Successfully pulled [bold green]{model_name}[/bold green].")
         else:
-            console.print(f"❌ Failed to pull [bold red]{model_name}[/bold red]. Is Ollama running?")
+            console.print(f" Failed to pull [bold red]{model_name}[/bold red]. Is Ollama running?")
             raise typer.Exit(1)
     else:
         # Fallback to the backend's pull_model which raises NotImplementedError gracefully
@@ -37,7 +37,7 @@ def pull(model_name: str = typer.Argument(..., help="Name of the model to pull (
             try:
                 await backend.pull_model(model_name)
             except NotImplementedError as e:
-                console.print(f"⚠️ [yellow]{e}[/yellow]")
+                console.print(f" [yellow]{e}[/yellow]")
         asyncio.run(_pull())
 
 
@@ -90,12 +90,12 @@ def run(
     try:
         backend = get_backend(backend_name)
     except ValueError as e:
-        console.print(f"❌ [bold red]Error:[/bold red] {e}")
+        console.print(f" [bold red]Error:[/bold red] {e}")
         raise typer.Exit(1)
     
     async def _run():
         if prompt:
-            console.print(f"🤖 [bold cyan]{model_name}[/bold cyan] (via {backend.name}): ", end="")
+            console.print(f" [bold cyan]{model_name}[/bold cyan] (via {backend.name}): ", end="")
             # Streaming output
             try:
                 async for chunk in backend.generate_stream(prompt, model_name):
@@ -105,13 +105,13 @@ def run(
                 console.print(f"\n[red]Error:[/red] {e}")
                 
         else:
-            console.print(f"💬 Starting interactive chat with [bold cyan]{model_name}[/bold cyan] via {backend.name}. Type 'exit' to quit.")
+            console.print(f" Starting interactive chat with [bold cyan]{model_name}[/bold cyan] via {backend.name}. Type 'exit' to quit.")
             while True:
                 user_input = typer.prompt("You")
                 if user_input.lower() in ['exit', 'quit']:
                     break
                 
-                console.print(f"🤖 [bold cyan]{model_name}[/bold cyan]: ", end="")
+                console.print(f" [bold cyan]{model_name}[/bold cyan]: ", end="")
                 try:
                     async for chunk in backend.generate_stream(user_input, model_name):
                         console.print(chunk, end="")

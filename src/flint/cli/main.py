@@ -5,7 +5,7 @@ from flint import __version__
 
 app = typer.Typer(
     name="flint",
-    help="🪨 Flint: The missing layer for local AI models.",
+    help=" Flint: The missing layer for local AI models.",
     no_args_is_help=True,
     add_completion=False,
 )
