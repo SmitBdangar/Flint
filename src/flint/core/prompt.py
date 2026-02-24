@@ -2,6 +2,7 @@
 Prompt abstraction for Flint.
 Handles variable interpolation and file loading.
 """
+
 import os
 from string import Template
 from typing import Dict, Any, Optional
@@ -17,7 +18,7 @@ class Prompt:
     def __init__(self, template: str, name: Optional[str] = None):
         """
         Initialize a Prompt.
-        
+
         Args:
             template: The string template (e.g., "Summarize this: {{text}}")
                       For now, we will support python's new style formatting: {text}
@@ -31,7 +32,7 @@ class Prompt:
         Interpolate the variables into the template.
         Supports {variable_name} syntax.
         """
-        # A robust version might use Jinja2. For v0.1, simple f-string style formatting via format() is fine, 
+        # A robust version might use Jinja2. For v0.1, simple f-string style formatting via format() is fine,
         # or string.Template if we want to be safer against missing keys.
         # Let's use str.format but handle missing keys gracefully or just let it raise KeyError.
         try:
@@ -50,7 +51,7 @@ class Prompt:
             with open(path, "r", encoding="utf-8") as f:
                 content = f.read()
             return cls(template=content, name=path.stem)
-        
+
         # In a real implementation, we would lookup from ~/.flint/prompts/
         raise FileNotFoundError(f"Prompt template not found at {name_or_path}")
 

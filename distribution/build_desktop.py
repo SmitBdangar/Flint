@@ -22,7 +22,7 @@ def build_app():
     print(f"Main script path: {main_script}")
     
     # Run PyInstaller
-    PyInstaller.__main__.run([
+    args = [
         str(main_script),
         '--name=Flint Desktop',
         '--windowed', # Hide console window
@@ -31,7 +31,13 @@ def build_app():
         '--clean',     # Clean PyInstaller cache
         f'--distpath={root_dir / "dist"}',
         f'--workpath={root_dir / "build"}'
-    ])
+    ]
+    
+    icon_path = root_dir / "assets" / "flint.ico"
+    if icon_path.exists():
+        args.append(f'--icon={icon_path}')
+        
+    PyInstaller.__main__.run(args)
     
     print("\n✅ Build complete! You can find the executable in the 'dist' directory.")
 

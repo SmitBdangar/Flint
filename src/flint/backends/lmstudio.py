@@ -1,12 +1,14 @@
 """
 LM Studio Backend implementation for Flint.
 """
+
 import httpx
 import json
 from typing import List, AsyncGenerator, Optional
 from flint.backends.base import BaseBackend
 from flint.core.model import Model
 from flint.core.config import config
+
 
 class LMStudioBackend(BaseBackend):
     def __init__(self, base_url: str = None):
@@ -26,7 +28,7 @@ class LMStudioBackend(BaseBackend):
                 response = await client.get(f"{self.base_url}/models")
                 response.raise_for_status()
                 data = response.json()
-                
+
                 models = []
                 for m in data.get("data", []):
                     # LM Studio's /v1/models might not return size, so we default to Unknown
@@ -35,7 +37,7 @@ class LMStudioBackend(BaseBackend):
                             name=m["id"],
                             backend_name=self.name,
                             size="Unknown",
-                            status="Ready"
+                            status="Ready",
                         )
                     )
                 return models
@@ -44,10 +46,17 @@ class LMStudioBackend(BaseBackend):
 
     async def pull_model(self, model_name: str) -> None:
         """Pulling via API isn't natively supported by LM Studio /v1 endpoint gracefully."""
-        raise NotImplementedError("LM Studio backend does not support model pulling via API yet. Please load models through the LM Studio app.")
+        raise NotImplementedError(
+            "LM Studio backend does not support model pulling via API yet. Please load models through the LM Studio app."
+        )
 
     async def generate(
-        self, prompt: str, model_name: str, stream: bool = False, system: Optional[str] = None, **kwargs
+        self,
+        prompt: str,
+        model_name: str,
+        stream: bool = False,
+        system: Optional[str] = None,
+        **kwargs,
     ) -> str:
         """Non-streaming generation."""
         messages = []
@@ -55,17 +64,11 @@ class LMStudioBackend(BaseBackend):
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
-        payload = {
-            "model": model_name,
-            "messages": messages,
-            "stream": False
-        }
-            
+        payload = {"model": model_name, "messages": messages, "stream": False}
+
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{self.base_url}/chat/completions",
-                json=payload,
-                timeout=None
+                f"{self.base_url}/chat/completions", json=payload, timeout=None
             )
             response.raise_for_status()
             data = response.json()
@@ -80,14 +83,12 @@ class LMStudioBackend(BaseBackend):
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
-        payload = {
-            "model": model_name,
-            "messages": messages,
-            "stream": True
-        }
+        payload = {"model": model_name, "messages": messages, "stream": True}
 
         async with httpx.AsyncClient() as client:
-            async with client.stream("POST", f"{self.base_url}/chat/completions", json=payload, timeout=None) as response:
+            async with client.stream(
+                "POST", f"{self.base_url}/chat/completions", json=payload, timeout=None
+            ) as response:
                 response.raise_for_status()
                 async for line in response.aiter_lines():
                     if line.startswith("data: "):
@@ -96,7 +97,9 @@ class LMStudioBackend(BaseBackend):
                             break
                         try:
                             data = json.loads(json_str)
-                            if data.get("choices") and data["choices"][0].get("delta", {}).get("content"):
+                            if data.get("choices") and data["choices"][0].get(
+                                "delta", {}
+                            ).get("content"):
                                 yield data["choices"][0]["delta"]["content"]
                         except json.JSONDecodeError:
                             continue

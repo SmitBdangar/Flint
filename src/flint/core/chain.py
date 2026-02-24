@@ -2,6 +2,7 @@
 Chain abstraction for Flint.
 A simple way to string prompts and models together, avoiding LangChain bloat.
 """
+
 from typing import List, Dict, Any, Union, Callable
 import inspect
 
@@ -31,7 +32,9 @@ class Chain:
         """
         from flint.core.prompt import Prompt
         from flint.core.model import Model
-        from flint.backends.ollama import OllamaBackend  # Import here to avoid circular logic initially
+        from flint.backends.ollama import (
+            OllamaBackend,
+        )  # Import here to avoid circular logic initially
 
         current_state = initial_kwargs
         current_text = None
@@ -40,23 +43,28 @@ class Chain:
             if isinstance(step, Prompt):
                 # Format prompt and set it as the current text
                 current_text = step.format(**current_state)
-            
+
             elif isinstance(step, Model):
                 # Execute generation using the model
                 if not current_text:
-                    raise ValueError(f"Model step at index {idx} requires a preceding Prompt step to generate text.")
-                
+                    raise ValueError(
+                        f"Model step at index {idx} requires a preceding Prompt step to generate text."
+                    )
+
                 # Use dynamic backend registry
                 from flint.backends import get_backend
+
                 backend = get_backend(step.backend_name)
-                
+
                 # The generate call returns string text
-                model_output = await backend.generate(prompt=current_text, model_name=step.name)
-                
+                model_output = await backend.generate(
+                    prompt=current_text, model_name=step.name
+                )
+
                 current_text = model_output
                 # Update state so subsequent prompts can use it if needed, often under 'text' or 'output'
-                current_state['output'] = model_output
-                
+                current_state["output"] = model_output
+
             elif callable(step):
                 # Call a custom function
                 # if the function is async, await it
@@ -66,7 +74,7 @@ class Chain:
                         current_text = await step(current_text)
                     else:
                         current_text = step(current_text)
-                    current_state['output'] = current_text
+                    current_state["output"] = current_text
                 else:
                     if inspect.iscoroutinefunction(step):
                         current_state = await step(current_state)

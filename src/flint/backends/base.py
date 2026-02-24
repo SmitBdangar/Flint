@@ -1,6 +1,7 @@
 """
 Base backend interface for Flint.
 """
+
 from typing import List, AsyncGenerator, Dict, Any, Optional
 from abc import ABC, abstractmethod
 
@@ -17,7 +18,7 @@ class BaseBackend(ABC):
         pass
 
     @abstractmethod
-    async def list_models(self) -> List["Model"]: # type: ignore # Handle circular import in types later if needed
+    async def list_models(self) -> List["Model"]:  # type: ignore # Handle circular import in types later if needed
         """List all available models in the backend."""
         pass
 
@@ -33,7 +34,7 @@ class BaseBackend(ABC):
         model_name: str,
         stream: bool = False,
         system: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         """
         Generate text from the model.
@@ -44,11 +45,7 @@ class BaseBackend(ABC):
 
     @abstractmethod
     async def generate_stream(
-        self,
-        prompt: str,
-        model_name: str,
-        system: Optional[str] = None,
-        **kwargs
+        self, prompt: str, model_name: str, system: Optional[str] = None, **kwargs
     ) -> AsyncGenerator[str, None]:
         """
         Generate text from the model as an async stream.

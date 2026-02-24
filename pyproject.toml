@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "flint-ai"
-version = "0.1.0"
+version = "1.0.0"
 description = "The missing layer between raw local AI models and production-ready apps."
 readme = "README.md"
 authors = [

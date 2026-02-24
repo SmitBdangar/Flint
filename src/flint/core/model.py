@@ -1,6 +1,7 @@
 """
 Model abstraction for Flint.
 """
+
 from typing import Optional, Dict
 
 
@@ -8,6 +9,7 @@ class Model:
     """
     Represents a local LLM across any backend.
     """
+
     def __init__(
         self,
         name: str,
@@ -15,7 +17,7 @@ class Model:
         size: Optional[str] = None,
         quantization: Optional[str] = None,
         status: str = "Ready",
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict] = None,
     ):
         self.name = name
         self.backend_name = backend_name or "ollama"  # Default to Ollama for now

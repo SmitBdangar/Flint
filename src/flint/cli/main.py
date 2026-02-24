@@ -26,6 +26,7 @@ app.command(name="code")(code.code)
 app.command(name="commit")(git.generate_commit)
 app.command(name="review")(git.code_review)
 
+
 @app.callback(invoke_without_command=True)
 def main(
     version: bool = typer.Option(
@@ -41,6 +42,7 @@ def main(
     if version:
         console.print(f"Flint version: [bold green]{__version__}[/bold green]")
         raise typer.Exit()
+
 
 if __name__ == "__main__":
     app()

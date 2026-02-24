@@ -1,12 +1,14 @@
 """
 Ollama Backend implementation for Flint.
 """
+
 import httpx
 import json
 from typing import List, Dict, Any, AsyncGenerator, Optional
 from flint.backends.base import BaseBackend
 from flint.core.model import Model
 from flint.core.config import config
+
 
 class OllamaBackend(BaseBackend):
     def __init__(self, base_url: str = None):
@@ -27,20 +29,20 @@ class OllamaBackend(BaseBackend):
                 response = await client.get(f"{self.base_url}/api/tags")
                 response.raise_for_status()
                 data = response.json()
-                
+
                 models = []
                 for m in data.get("models", []):
                     size_bytes = m.get("size", 0)
                     # Convert bytes to GB roughly
                     size_gb = round(size_bytes / (1024**3), 1)
                     size_str = f"{size_gb} GB" if size_gb > 0 else "Unknown"
-                    
+
                     models.append(
                         Model(
                             name=m["name"],
                             backend_name=self.name,
                             size=size_str,
-                            status="Ready"
+                            status="Ready",
                         )
                     )
                 return models
@@ -55,22 +57,21 @@ class OllamaBackend(BaseBackend):
         pass
 
     async def generate(
-        self, prompt: str, model_name: str, stream: bool = False, system: Optional[str] = None, **kwargs
+        self,
+        prompt: str,
+        model_name: str,
+        stream: bool = False,
+        system: Optional[str] = None,
+        **kwargs,
     ) -> str:
         """Non-streaming generation."""
-        payload = {
-            "model": model_name,
-            "prompt": prompt,
-            "stream": False
-        }
+        payload = {"model": model_name, "prompt": prompt, "stream": False}
         if system:
             payload["system"] = system
-            
+
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{self.base_url}/api/generate",
-                json=payload,
-                timeout=None
+                f"{self.base_url}/api/generate", json=payload, timeout=None
             )
             response.raise_for_status()
             return response.json().get("response", "")
@@ -79,16 +80,14 @@ class OllamaBackend(BaseBackend):
         self, prompt: str, model_name: str, system: Optional[str] = None, **kwargs
     ) -> AsyncGenerator[str, None]:
         """Streaming generation."""
-        payload = {
-            "model": model_name,
-            "prompt": prompt,
-            "stream": True
-        }
+        payload = {"model": model_name, "prompt": prompt, "stream": True}
         if system:
             payload["system"] = system
 
         async with httpx.AsyncClient() as client:
-            async with client.stream("POST", f"{self.base_url}/api/generate", json=payload, timeout=None) as response:
+            async with client.stream(
+                "POST", f"{self.base_url}/api/generate", json=payload, timeout=None
+            ) as response:
                 response.raise_for_status()
                 async for line in response.aiter_lines():
                     if line:

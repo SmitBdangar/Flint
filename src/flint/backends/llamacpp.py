@@ -1,6 +1,7 @@
 """
 llama.cpp Backend implementation for Flint.
 """
+
 import httpx
 import json
 from typing import List, AsyncGenerator, Optional
@@ -23,7 +24,7 @@ class LlamaCppBackend(BaseBackend):
                 response = await client.get(f"{self.base_url}/models")
                 response.raise_for_status()
                 data = response.json()
-                
+
                 models = []
                 for m in data.get("data", []):
                     models.append(
@@ -31,7 +32,7 @@ class LlamaCppBackend(BaseBackend):
                             name=m["id"],
                             backend_name=self.name,
                             size="Unknown",
-                            status="Ready"
+                            status="Ready",
                         )
                     )
                 return models
@@ -40,10 +41,17 @@ class LlamaCppBackend(BaseBackend):
 
     async def pull_model(self, model_name: str) -> None:
         """Pulling via API isn't natively supported by llama.cpp server out of the box in the same way."""
-        raise NotImplementedError("llama.cpp backend does not support model pulling via API. Please download models manually.")
+        raise NotImplementedError(
+            "llama.cpp backend does not support model pulling via API. Please download models manually."
+        )
 
     async def generate(
-        self, prompt: str, model_name: str, stream: bool = False, system: Optional[str] = None, **kwargs
+        self,
+        prompt: str,
+        model_name: str,
+        stream: bool = False,
+        system: Optional[str] = None,
+        **kwargs,
     ) -> str:
         """Non-streaming generation."""
         messages = []
@@ -51,17 +59,11 @@ class LlamaCppBackend(BaseBackend):
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
-        payload = {
-            "model": model_name,
-            "messages": messages,
-            "stream": False
-        }
-            
+        payload = {"model": model_name, "messages": messages, "stream": False}
+
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{self.base_url}/chat/completions",
-                json=payload,
-                timeout=None
+                f"{self.base_url}/chat/completions", json=payload, timeout=None
             )
             response.raise_for_status()
             data = response.json()
@@ -76,14 +78,12 @@ class LlamaCppBackend(BaseBackend):
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
-        payload = {
-            "model": model_name,
-            "messages": messages,
-            "stream": True
-        }
+        payload = {"model": model_name, "messages": messages, "stream": True}
 
         async with httpx.AsyncClient() as client:
-            async with client.stream("POST", f"{self.base_url}/chat/completions", json=payload, timeout=None) as response:
+            async with client.stream(
+                "POST", f"{self.base_url}/chat/completions", json=payload, timeout=None
+            ) as response:
                 response.raise_for_status()
                 async for line in response.aiter_lines():
                     if line.startswith("data: "):
@@ -92,7 +92,9 @@ class LlamaCppBackend(BaseBackend):
                             break
                         try:
                             data = json.loads(json_str)
-                            if data.get("choices") and data["choices"][0].get("delta", {}).get("content"):
+                            if data.get("choices") and data["choices"][0].get(
+                                "delta", {}
+                            ).get("content"):
                                 yield data["choices"][0]["delta"]["content"]
                         except json.JSONDecodeError:
                             continue

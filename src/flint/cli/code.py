@@ -11,6 +11,7 @@ from flint.backends import get_backend
 
 console = Console()
 
+
 def extract_code_block(text: str) -> str:
     """
     Extracts the first markdown code block from the given text.
@@ -22,17 +23,24 @@ def extract_code_block(text: str) -> str:
         return match.group(1).strip()
     return text.strip()
 
+
 def code(
     file_path: Path = typer.Argument(..., help="Path to the file to modify"),
     instruction: str = typer.Argument(..., help="Instruction for what to change"),
-    backend_name: str = typer.Option("ollama", "--backend", "-b", help="Backend to use (ollama, lmstudio, llamacpp)"),
-    model_name: str = typer.Option(..., "--model", "-m", help="Model to use (e.g., qwen2.5:0.5b)")
+    backend_name: str = typer.Option(
+        "ollama", "--backend", "-b", help="Backend to use (ollama, lmstudio, llamacpp)"
+    ),
+    model_name: str = typer.Option(
+        ..., "--model", "-m", help="Model to use (e.g., qwen2.5:0.5b)"
+    ),
 ):
     """
     Autonomous inline coder. Reads a file and overwrites it with AI modifications.
     """
     if not file_path.exists() or not file_path.is_file():
-        console.print(f" [bold red]Error:[/bold red] The file '{file_path}' does not exist.")
+        console.print(
+            f" [bold red]Error:[/bold red] The file '{file_path}' does not exist."
+        )
         raise typer.Exit(1)
 
     try:
@@ -44,7 +52,9 @@ def code(
     with open(file_path, "r", encoding="utf-8") as f:
         file_content = f.read()
 
-    console.print(f" [bold cyan]flint code[/bold cyan]: Modifying [green]{file_path.name}[/green] via {backend.name} ({model_name})...")
+    console.print(
+        f" [bold cyan]flint code[/bold cyan]: Modifying [green]{file_path.name}[/green] via {backend.name} ({model_name})..."
+    )
 
     system_prompt = (
         "You are an expert software developer. "
@@ -54,7 +64,9 @@ def code(
         "Your output must be completely ready to overwrite the original file."
     )
 
-    user_prompt = f"File Contents:\n```\n{file_content}\n```\n\nInstruction: {instruction}"
+    user_prompt = (
+        f"File Contents:\n```\n{file_content}\n```\n\nInstruction: {instruction}"
+    )
 
     async def _run():
         try:
@@ -64,39 +76,47 @@ def code(
                 prompt=user_prompt,
                 model_name=model_name,
                 system=system_prompt,
-                stream=False
+                stream=False,
             )
-            
+
             new_code = extract_code_block(response)
-            
+
             # Simple safety check: if the model returned nothing or just garbage
             if not new_code:
-                 console.print(" [bold red]Error:[/bold red] The model returned an empty script.")
-                 raise typer.Exit(1)
+                console.print(
+                    " [bold red]Error:[/bold red] The model returned an empty script."
+                )
+                raise typer.Exit(1)
 
             # Generate diff
             original_lines = file_content.splitlines(keepends=True)
             new_lines = new_code.splitlines(keepends=True)
-            diff = "".join(difflib.unified_diff(
-                original_lines, new_lines,
-                fromfile=f"a/{file_path.name}", tofile=f"b/{file_path.name}"
-            ))
-            
+            diff = "".join(
+                difflib.unified_diff(
+                    original_lines,
+                    new_lines,
+                    fromfile=f"a/{file_path.name}",
+                    tofile=f"b/{file_path.name}",
+                )
+            )
+
             if not diff:
                 console.print(" [yellow]No changes were suggested by the AI.[/yellow]")
                 raise typer.Exit(0)
-                
+
             console.print("\n[bold cyan]Proposed Changes:[/bold cyan]")
             console.print(Syntax(diff, "diff", theme="monokai", padding=1))
-            
+
             if Confirm.ask("\nApply these changes?"):
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(new_code)
-                console.print(f" Success! In-place modification written to [bold green]{file_path}[/bold green].")
+                console.print(
+                    f" Success! In-place modification written to [bold green]{file_path}[/bold green]."
+                )
             else:
                 console.print(" [yellow]Operation aborted by user.[/yellow]")
                 raise typer.Exit(0)
-            
+
         except Exception as e:
             console.print(f"\n[red]Error generating code:[/red] {e}")
             raise typer.Exit(1)
