@@ -269,12 +269,3 @@ git push origin feat/your-feature
 ```
 
 Open an issue first for large changes. Bug reports and feature requests welcome.
-
----
-
-## License
-
-```
-MIT License — Copyright (c) 2026 Smit Dangar
-Your code stays on your machine. Always.
-```
