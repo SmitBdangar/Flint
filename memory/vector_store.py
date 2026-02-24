@@ -43,6 +43,20 @@ class VectorStore:
             
         dir_path = Path(dir_path).resolve()
         
+        # Build ignore specifications from .gitignore and defaults
+        ignore_patterns = [".git/", ".svn/", "node_modules/", "venv/", "env/", ".env/", "__pycache__/", ".pytest_cache/", "build/", "dist/"]
+        for ignore_file in [".gitignore", ".flintignore"]:
+            ignore_path = dir_path / ignore_file
+            if ignore_path.exists():
+                try:
+                    with open(ignore_path, 'r', encoding='utf-8') as f:
+                        ignore_patterns.extend([line.strip() for line in f if line.strip() and not line.startswith('#')])
+                except Exception:
+                    pass
+                    
+        import pathspec
+        spec = pathspec.PathSpec.from_lines(pathspec.patterns.GitWildMatchPattern, ignore_patterns)
+        
         docs = []
         metadatas = []
         ids = []
@@ -58,12 +72,17 @@ class VectorStore:
                 ext = os.path.splitext(file)[1].lower()
                 if ext in extensions:
                     file_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(file_path, dir_path).replace("\\", "/")
+                    
+                    # Ignore files matched by pathspec (.gitignore)
+                    if spec.match_file(rel_path):
+                        continue
+                        
                     try:
                         with open(file_path, 'r', encoding='utf-8') as f:
                             content = f.read()
                             
                         chunks = self.chunk_text(content)
-                        rel_path = os.path.relpath(file_path, dir_path)
                         
                         for i, chunk in enumerate(chunks):
                             docs.append(chunk)

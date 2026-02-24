@@ -3,7 +3,7 @@ import asyncio
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QComboBox, QTextEdit, QPushButton, QLabel, QSplitter,
-    QScrollArea, QFileDialog, QCheckBox
+    QScrollArea, QFileDialog, QCheckBox, QListWidget, QListWidgetItem
 )
 
 try:
@@ -15,6 +15,7 @@ from PySide6.QtGui import QFont, QTextCursor
 
 from flint.backends import get_all_backends
 from app.worker import GenerationWorker
+from app.history import init_db, create_session, get_sessions, get_messages, add_message
 
 
 class MainWindow(QMainWindow):
@@ -128,6 +129,10 @@ class MainWindow(QMainWindow):
         self._init_chat_area()
 
         self.worker = None
+        self.current_session_id = None
+        
+        # Initialize Database
+        init_db()
 
         # Populate models on startup
         self.populate_models()
@@ -151,8 +156,42 @@ class MainWindow(QMainWindow):
         self.refresh_btn.clicked.connect(self.populate_models)
         sidebar_layout.addWidget(self.refresh_btn)
         
-        # Stretch to push components to the top
-        sidebar_layout.addStretch()
+        # Separator
+        sidebar_layout.addSpacing(20)
+        history_label = QLabel("Chat History")
+        history_label.setFont(QFont("Arial", 12, QFont.Bold))
+        sidebar_layout.addWidget(history_label)
+
+        # New Chat button
+        self.new_chat_btn = QPushButton("+ New Chat")
+        self.new_chat_btn.clicked.connect(self.new_chat)
+        sidebar_layout.addWidget(self.new_chat_btn)
+
+        # History List
+        self.history_list = QListWidget()
+        self.history_list.setStyleSheet("""
+            QListWidget {
+                background-color: transparent;
+                border: none;
+                color: #ececec;
+                font-family: 'Inter', 'Roboto', 'Segoe UI', Arial, sans-serif;
+            }
+            QListWidget::item {
+                padding: 10px;
+                border-radius: 5px;
+            }
+            QListWidget::item:hover {
+                background-color: #2f2f2f;
+            }
+            QListWidget::item:selected {
+                background-color: #424242;
+                color: #ffffff;
+            }
+        """)
+        self.history_list.itemClicked.connect(self.select_session)
+        sidebar_layout.addWidget(self.history_list)
+        
+        self.refresh_history_list()
 
         self.splitter.addWidget(self.sidebar_widget)
         self.sidebar_widget.setMinimumWidth(250)
@@ -359,6 +398,12 @@ class MainWindow(QMainWindow):
         self.attach_btn.setEnabled(False)
         if hasattr(self, 'memory_checkbox'):
             self.memory_checkbox.setEnabled(False)
+            
+        # Ensure session exists
+        if self.current_session_id is None:
+            title = prompt[:30] + "..." if len(prompt) > 30 else prompt
+            self.current_session_id = create_session(title)
+            self.refresh_history_list()
         
         # Build context from memory and attached files
         context_block = ""
@@ -406,6 +451,9 @@ class MainWindow(QMainWindow):
         # Clear attached files state
         self.attached_files = []
         self.attached_files_label.setText("")
+        
+        # Save user message to DB
+        add_message(self.current_session_id, "user", context_block)
         
         # Append User Message (ChatGPT right-aligned rounded bubble style)
         self.chat_history.append(f"""
@@ -481,6 +529,10 @@ class MainWindow(QMainWindow):
         # Close the AI message div block
         self.chat_history.append("</div></div><br>")
         self.scrollToBottom()
+        
+        # Save AI message to DB
+        add_message(self.current_session_id, "assistant", self.current_ai_message)
+        
         self.send_btn.setEnabled(True)
         self.attach_btn.setEnabled(True)
         if hasattr(self, 'memory_checkbox'):
@@ -488,6 +540,68 @@ class MainWindow(QMainWindow):
         if self.worker:
             self.worker.deleteLater()
             self.worker = None
+
+    def refresh_history_list(self):
+        self.history_list.clear()
+        sessions = get_sessions()
+        for session in sessions:
+            item = QListWidgetItem(session["title"])
+            item.setData(Qt.UserRole, session["id"])
+            self.history_list.addItem(item)
+            
+    def select_session(self, item):
+        session_id = item.data(Qt.UserRole)
+        self.current_session_id = session_id
+        self.chat_history.clear()
+        
+        # Check if disabled
+        self.send_btn.setEnabled(True)
+        self.attach_btn.setEnabled(True)
+        
+        messages = get_messages(session_id)
+        if not messages:
+            self.chat_history.append("<div style='text-align: center; margin-top: 40px;'><h2>Flint Desktop</h2><p style='color: #ececec;'>Empty Chat.</p></div>")
+            return
+            
+        import markdown
+        for msg in messages:
+            if msg["role"] == "user":
+                content = msg["content"]
+                # A quick hack to hide massive file attachments from history view
+                if "I am attaching the following specific files" in content:
+                    content = "<i>[Attached Files Hidden in History]</i><br>" + content.split("My instructions/prompt:\\n")[-1]
+                elif "I am providing the following code snippets from the local codebase" in content:
+                    content = "<i>🧠 [Codebase Memory Snippets Hidden]</i><br>" + content.split("My instructions/prompt:\\n")[-1]
+
+                self.chat_history.append(f"""
+                <div style='display: flex; justify-content: flex-end; margin-bottom: 20px;'>
+                    <div style='background-color: #2f2f2f; color: #ececec; border-radius: 18px; padding: 10px 18px; max-width: 80%; text-align: left; font-size: 15px;'>
+                        {content}
+                    </div>
+                </div>
+                """)
+            else:
+                html = markdown.markdown(msg["content"], extensions=['fenced_code', 'tables'])
+                styled_html = f"""
+                <div style="font-family: 'Inter', 'Roboto', 'Segoe UI', Arial, sans-serif; font-size: 14px; color: #f8fafc;">
+                    {html.replace('<pre>', '<pre style="background-color: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 8px; border: 1px solid #334155; overflow-x: auto; margin-top: 8px; margin-bottom: 8px;">')
+                         .replace('<code>', '<code style="background-color: #0f172a; padding: 2px 6px; border-radius: 4px; font-family: Consolas, Monaco, monospace; font-size: 13px; color: #cbd5e1;">')}
+                </div>
+                """
+                self.chat_history.append(f"""
+                <div style='display: flex; justify-content: flex-start; margin-bottom: 5px; margin-top: 20px;'>
+                    <div style='color: #ececec; text-align: left; width: 100%; font-size: 15px;'>
+                        <b style='font-size: 16px;'>AI</b><br><br>
+                        {styled_html}
+                    </div>
+                </div><br>
+                """)
+        self.scrollToBottom()
+        
+    def new_chat(self):
+        self.current_session_id = None
+        self.chat_history.clear()
+        self.chat_history.append("<div style='text-align: center; margin-top: 40px;'><h2>Flint Desktop</h2><p style='color: #ececec;'>Welcome! Select a model and start chatting.</p></div>")
 
     def scrollToBottom(self):
         scrollbar = self.chat_history.verticalScrollBar()

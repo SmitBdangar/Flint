@@ -6,11 +6,14 @@ import json
 from typing import List, Dict, Any, AsyncGenerator, Optional
 from flint.backends.base import BaseBackend
 from flint.core.model import Model
-
+from flint.core.config import config
 
 class OllamaBackend(BaseBackend):
-    def __init__(self, base_url: str = "http://localhost:11434"):
+    def __init__(self, base_url: str = None):
         super().__init__()
+        if base_url is None:
+            port = config.get("backends", {}).get("ollama_port", 11434)
+            base_url = f"http://localhost:{port}"
         self.base_url = base_url.rstrip("/")
 
     @property

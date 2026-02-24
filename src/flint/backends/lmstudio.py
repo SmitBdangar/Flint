@@ -6,10 +6,13 @@ import json
 from typing import List, AsyncGenerator, Optional
 from flint.backends.base import BaseBackend
 from flint.core.model import Model
-
+from flint.core.config import config
 
 class LMStudioBackend(BaseBackend):
-    def __init__(self, base_url: str = "http://localhost:1234/v1"):
+    def __init__(self, base_url: str = None):
+        if base_url is None:
+            port = config.get("backends", {}).get("lmstudio_port", 1234)
+            base_url = f"http://localhost:{port}/v1"
         self.base_url = base_url.rstrip("/")
 
     @property

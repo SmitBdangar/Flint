@@ -2,8 +2,11 @@ import typer
 import asyncio
 import os
 import re
+import difflib
 from pathlib import Path
 from rich.console import Console
+from rich.syntax import Syntax
+from rich.prompt import Confirm
 from flint.backends import get_backend
 
 console = Console()
@@ -71,11 +74,28 @@ def code(
                  console.print(" [bold red]Error:[/bold red] The model returned an empty script.")
                  raise typer.Exit(1)
 
-            # Overwrite file
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(new_code)
+            # Generate diff
+            original_lines = file_content.splitlines(keepends=True)
+            new_lines = new_code.splitlines(keepends=True)
+            diff = "".join(difflib.unified_diff(
+                original_lines, new_lines,
+                fromfile=f"a/{file_path.name}", tofile=f"b/{file_path.name}"
+            ))
+            
+            if not diff:
+                console.print(" [yellow]No changes were suggested by the AI.[/yellow]")
+                raise typer.Exit(0)
                 
-            console.print(f" Success! In-place modification written to [bold green]{file_path}[/bold green].")
+            console.print("\n[bold cyan]Proposed Changes:[/bold cyan]")
+            console.print(Syntax(diff, "diff", theme="monokai", padding=1))
+            
+            if Confirm.ask("\nApply these changes?"):
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(new_code)
+                console.print(f" Success! In-place modification written to [bold green]{file_path}[/bold green].")
+            else:
+                console.print(" [yellow]Operation aborted by user.[/yellow]")
+                raise typer.Exit(0)
             
         except Exception as e:
             console.print(f"\n[red]Error generating code:[/red] {e}")
