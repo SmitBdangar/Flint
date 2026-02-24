@@ -1,7 +1,4 @@
-# FLINT(1) - User Commands
-
-## NAME
-**flint** - The missing layer between raw local AI models and production-ready apps.
+# FLINT
 
 ## SYNOPSIS
 `flint` [*COMMAND*] [*OPTIONS*]
@@ -44,15 +41,3 @@ lmstudio_port = 1234
 ## ENVIRONMENT
 Requires Python 3.9+ for CLI operations.
 Standalone Desktop Application relies on Qt6 bindings (`PySide6`).
-
-## DOCUMENTATION
-For enterprise-level architectural documentation and developer guides, refer to the `docs/` directory:
-- [Architecture & Design](docs/architecture.md)
-- [Security & Privacy Standards](docs/security.md)
-- [CLI Reference Manual](docs/cli_usage.md)
-- [Installation Guide](docs/installation.md)
-- [Desktop App Usage](docs/desktop_app.md)
-
-## AUTHOR
-Developed and maintained by the Flint Community.
-License: MIT. See `LICENSE` for details.
