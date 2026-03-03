@@ -2,7 +2,7 @@ import typer
 from rich.console import Console
 
 try:
-    from memory.vector_store import VectorStore
+    from flint.memory.vector_store import VectorStore
 except ImportError:
     VectorStore = None
 

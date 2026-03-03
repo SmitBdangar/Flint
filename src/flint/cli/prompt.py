@@ -1,25 +1,30 @@
+import os
 import typer
 import asyncio
+from pathlib import Path
 from typing import List
 from rich.console import Console
 from flint.core.prompt import Prompt
-from flint.backends.ollama import OllamaBackend
+from flint.backends import get_backend
 
 app = typer.Typer()
 console = Console()
+
+PROMPT_DIR = Path(os.path.expanduser("~/.flint/prompts"))
 
 
 @app.command("save")
 def save_prompt(name: str, file_path: str):
     """
-    Save a prompt template to the registry.
+    Save a prompt template to the registry (~/.flint/prompts/<name>.txt).
     """
-    # Simply load from file and pretend to save it for now
     try:
         p = Prompt.load(file_path)
-        p.save(name)
+        PROMPT_DIR.mkdir(parents=True, exist_ok=True)
+        dest = PROMPT_DIR / f"{name}.txt"
+        dest.write_text(p.template, encoding="utf-8")
         console.print(
-            f" Saved prompt template [bold green]{name}[/bold green] from {file_path}"
+            f" Saved prompt template [bold green]{name}[/bold green] → {dest}"
         )
     except FileNotFoundError:
         console.print(f" Could not find file {file_path}")
@@ -30,6 +35,9 @@ def save_prompt(name: str, file_path: str):
 def run_prompt(
     name: str = typer.Argument(..., help="Name of the prompt or path to file"),
     model: str = typer.Option("llama3", "--model", "-m", help="Model to use"),
+    backend_name: str = typer.Option(
+        "ollama", "--backend", "-b", help="Backend to use (ollama, lmstudio, llamacpp)"
+    ),
     var: List[str] = typer.Option(
         [], "--var", "-v", help="Variables for interpolation (e.g. -v attr=value)"
     ),
@@ -50,11 +58,15 @@ def run_prompt(
         console.print(f" Failed to load/format prompt: {e}")
         raise typer.Exit(1)
 
-    backend = OllamaBackend()
+    try:
+        backend = get_backend(backend_name)
+    except ValueError as e:
+        console.print(f" [bold red]Error:[/bold red] {e}")
+        raise typer.Exit(1)
 
     async def _run():
         console.print(
-            f" Running [bold cyan]{model}[/bold cyan] with prompt '{name}'..."
+            f" Running [bold cyan]{model}[/bold cyan] via {backend.name} with prompt '{name}'..."
         )
         try:
             async for chunk in backend.generate_stream(formatted_prompt, model):

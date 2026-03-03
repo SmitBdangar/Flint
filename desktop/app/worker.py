@@ -34,3 +34,7 @@ class GenerationWorker(QThread):
         async for chunk in backend.generate_stream(self.prompt, self.model_name):
             if chunk:
                 self.chunk_received.emit(chunk)
+        # FIX: emit finished_generation after stream ends so UI handlers wired
+        # to this custom signal fire correctly (Qt's built-in `finished` also fires,
+        # but this ensures the custom signal is consistent with its declaration).
+        self.finished_generation.emit()

@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 )
 
 try:
-    from memory.vector_store import VectorStore
+    from flint.memory.vector_store import VectorStore
 except ImportError:
     VectorStore = None
 from PySide6.QtCore import Qt
@@ -569,9 +569,11 @@ class MainWindow(QMainWindow):
                 content = msg["content"]
                 # A quick hack to hide massive file attachments from history view
                 if "I am attaching the following specific files" in content:
-                    content = "<i>[Attached Files Hidden in History]</i><br>" + content.split("My instructions/prompt:\\n")[-1]
+                    # FIX: was split("\\n") (literal backslash-n), now correctly splits on newline
+                    content = "<i>[Attached Files Hidden in History]</i><br>" + content.split("My instructions/prompt:\n")[-1]
                 elif "I am providing the following code snippets from the local codebase" in content:
-                    content = "<i>🧠 [Codebase Memory Snippets Hidden]</i><br>" + content.split("My instructions/prompt:\\n")[-1]
+                    # FIX: same \n fix as above
+                    content = "<i>🧠 [Codebase Memory Snippets Hidden]</i><br>" + content.split("My instructions/prompt:\n")[-1]
 
                 self.chat_history.append(f"""
                 <div style='display: flex; justify-content: flex-end; margin-bottom: 20px;'>

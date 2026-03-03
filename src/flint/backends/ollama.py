@@ -51,10 +51,16 @@ class OllamaBackend(BaseBackend):
                 return []
 
     async def pull_model(self, model_name: str) -> None:
-        """Pull a model via Ollama API."""
-        # For CLI output, this really should stream the JSON-lines output to show progress.
-        # This implementation just does it in one go (or streams without yielding).
-        pass
+        """Pull a model via the Ollama CLI."""
+        # FIX: was a bare `pass` stub — now shells out to the Ollama CLI
+        # so that pull works when called programmatically (e.g. via Chain or tests).
+        import subprocess
+        result = subprocess.run(["ollama", "pull", model_name], capture_output=False)
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Failed to pull model '{model_name}' via Ollama CLI. "
+                "Is Ollama installed and running?"
+            )
 
     async def generate(
         self,

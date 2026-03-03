@@ -10,7 +10,7 @@ readme = "README.md"
 authors = [
     { name = "Flint Community", email = "hello@example.com" }
 ]
-license = "MIT"
+license = {text = "MIT"}
 requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -55,7 +55,6 @@ flint = "flint.cli.main:app"
 [tool.hatch.build.targets.wheel]
 packages = [
     "src/flint",
-    "memory"
 ]
 
 [tool.black]
