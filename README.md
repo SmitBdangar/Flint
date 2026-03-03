@@ -1,211 +1,206 @@
 ```
 ███████╗██╗     ██╗███╗   ██╗████████╗
 ██╔════╝██║     ██║████╗  ██║╚══██╔══╝
-█████╗  ██║     ██║██╔██╗ ██║   ██║   
-██╔══╝  ██║     ██║██║╚██╗██║   ██║   
-██║     ███████╗██║██║ ╚████║   ██║   
-╚═╝     ╚══════╝╚═╝╚═╝  ╚═══╝   ╚═╝  v0.1.0
+█████╗  ██║     ██║██╔██╗ ██║   ██║
+██╔══╝  ██║     ██║██║╚██╗██║   ██║
+██║     ███████╗██║██║ ╚████║   ██║
+╚═╝     ╚══════╝╚═╝╚═╝  ╚═══╝   ╚═╝  v1.0.0
 ```
 
 **Zero-telemetry. Fully local. AI-powered development — on your machine, under your control.**
 
-```bash
-$ flint --version
-flint 0.1.0 — local-first AI dev toolkit (python 3.12, linux/amd64)
-backend: ollama @ localhost:11434
-memory:  chromadb (indexed: 1,842 chunks)
-```
+Flint is a local-first AI developer toolkit that wraps Ollama, LM Studio, and llama.cpp with a CLI, a RAG-powered codebase memory layer, inline code generation, and a desktop chat GUI — all running entirely offline.
+
+---
 
 ## Requirements
 
-```
-Python     >= 3.10
-Ollama     >= 0.1.x   OR   LM Studio >= 0.2.x   (at least one required)
-ChromaDB   >= 0.4.x   (auto-installed)
-PySide6    >= 6.6.x   (for desktop app only)
-```
+| Dependency | Version | Notes |
+|---|---|---|
+| Python | >= 3.9 | |
+| Ollama | >= 0.1.x | *or* LM Studio / llama.cpp (at least one required) |
+| ChromaDB | >= 0.4.x | Auto-installed; uses local ONNX embeddings |
+| PySide6 | >= 6.5.x | Desktop app only |
+
+---
 
 ## Install
 
-**From PyPI**
-
-```bash
-pip install flint
-```
-
-**From source**
+**From source (recommended for now):**
 
 ```bash
 git clone https://github.com/SmitBdangar/Flint.git
 cd Flint
-pip install -e .
+
+# Core CLI + RAG
+py -m pip install -e .
+
+# Core + Desktop GUI
+py -m pip install -e ".[desktop]"
+
+# Core + Desktop + Dev tools
+py -m pip install -e ".[dev,desktop]"
 ```
+
+> **Windows note:** Use `py` instead of `python`/`pip` if those aren't on your PATH.
+
+---
 
 ## Quick Start
 
 ```bash
 # 1. Make sure Ollama is running
-ollama pull codellama
+ollama pull llama3
 
-# 2. Index your codebase
+# 2. Index your codebase for RAG
 cd /your/project
-flint memory index
+py -m flint memory index .
 
-# 3. Ask Flint to make a code change
-flint code "add input validation to the register() function in auth.py"
+# 3. Ask Flint to modify a file
+py -m flint code auth.py "add input validation to the register() function" --model llama3
 
-# 4. Review the diff and approve
-# [Y/n]?
+# 4. Review the diff and approve or reject
+# Apply these changes? [y/N]
 ```
 
-## Commands
+---
 
-### `flint code` — Autonomous Coding
+## CLI Commands
 
-Flint reads your codebase, understands the context via RAG, and streams AI-generated edits as a **git-style unified diff**. Nothing is written to disk until you approve.
+### `flint list` — List Available Models
+
+Lists all models detected across every running backend (Ollama, LM Studio, llama.cpp).
 
 ```bash
-$ flint code "refactor the database connection to use a context manager"
-
-[✓] reading codebase context...
-[✓] querying memory (top 8 chunks)...
-[~] streaming edits from codellama:13b...
-
---- a/src/db/connection.py
-+++ b/src/db/connection.py
-@@ -12,9 +12,12 @@
--def get_connection():
--    conn = sqlite3.connect(DB_PATH)
--    return conn
-+from contextlib import contextmanager
-+
-+@contextmanager
-+def get_connection():
-+    conn = sqlite3.connect(DB_PATH)
-+    try:
-+        yield conn
-+    finally:
-+        conn.close()
-
-Apply these changes? [Y/n]: y
-[✓] db/connection.py updated.
+py -m flint list
 ```
 
-**Options:**
+### `flint run` — Run / Chat with a Model
 
+Single prompt or interactive multi-turn chat.
+
+```bash
+# Single prompt (streams output)
+py -m flint run llama3 "Explain async/await in Python"
+
+# Interactive REPL (type 'exit' to quit)
+py -m flint run llama3
 ```
-flint code [OPTIONS] PROMPT
 
-Options:
-  --file PATH      Target a specific file (skips RAG lookup)
-  --model TEXT     Override model for this run
-  --dry-run        Show diff but never prompt to apply
-  --no-memory      Disable RAG context for this run
-  -h, --help       Show this message and exit.
+Options: `--backend ollama|lmstudio|llamacpp`
+
+### `flint code` — Inline Code Generation
+
+Reads a file, sends it to the model with your instruction, shows a unified diff, and only writes if you approve.
+
+```bash
+py -m flint code path/to/file.py "refactor the DB connection to use a context manager" \
+    --model llama3 --backend ollama
 ```
 
 ### `flint memory` — Codebase RAG
 
-Flint uses **ChromaDB** to vectorize your entire repository into a local, offline vector store. It respects your `.gitignore`, chunks files intelligently, and gives the AI deep structural understanding of your project.
+Indexes source files into a local ChromaDB vector store (stored at `~/.flint/vector_db`). Embeddings are generated locally via ONNX — no network calls.
 
 ```bash
-# Index the current directory
-$ flint memory index
+# Index a directory
+py -m flint memory index /your/project
 
-[✓] scanning project...
-[✓] .gitignore rules applied (skipped 214 files)
-[~] chunking 87 source files...
-[✓] vectorized 1,842 chunks → .flint/memory/chromadb
-    done in 4.2s
-
-# Query the index directly
-$ flint memory query "how is authentication handled?"
-
-[1] src/auth/jwt.py         score: 0.94
-[2] src/auth/middleware.py  score: 0.91
-[3] src/users/models.py     score: 0.87
-
-# Check index status
-$ flint memory status
-
-  index     : .flint/memory/chromadb
-  files     : 87
-  chunks    : 1,842
-  last run  : 2026-02-24 11:03:41
-  model     : nomic-embed-text (local)
+# Search the index
+py -m flint memory search "how does authentication work?" --results 5
 ```
 
-**Options:**
+Respects `.gitignore` and `.flintignore`. Indexes: `.py .md .txt .js .ts .html .css .json .rs .go`
 
-```
-flint memory [COMMAND]
+### `flint commit` — AI Commit Messages
 
-Commands:
-  index   Build or rebuild the vector index.
-  query   Search the index with a natural language query.
-  status  Show index stats.
-  clear   Delete the local vector store.
-
-flint memory index [OPTIONS]
-  --path PATH      Root directory to index  [default: cwd]
-  --chunk-size N   Token chunk size  [default: 512]
-  --force          Re-index even if up to date
-```
-
-### `flint chat` — Terminal Chat
-
-Prefer staying in the terminal? `flint chat` opens a rich interactive REPL with the same memory and model options as the GUI.
+Reads your staged `git diff` and generates a conventional commit message.
 
 ```bash
-$ flint chat --memory
+git add -A
+py -m flint commit --model llama3
 
-  flint chat  |  model: codellama:13b  |  memory: ON
-  type /help for commands, /exit to quit
-  ─────────────────────────────────────────────────
-
-  you › how does the job queue work in this project?
-
-  flint › Based on your codebase, the job queue is implemented
-          in src/workers/queue.py using Redis as the broker.
-          Tasks are registered with the @job decorator and
-          dispatched via JobQueue.push(). Workers are started
-          with `python -m workers.runner`...
-
-  you › /exit
+# Auto-commit without confirmation prompt
+py -m flint commit --model llama3 --auto-commit
 ```
+
+### `flint review` — AI Code Review
+
+Reviews your current diff for bugs, security issues, and anti-patterns.
+
+```bash
+py -m flint review --model llama3
+
+# Review only staged changes
+py -m flint review --staged-only
+```
+
+### `flint serve` — OpenAI-Compatible REST API
+
+Wraps any local backend behind an OpenAI-compatible API. Drop-in replacement for apps that support custom base URLs.
+
+```bash
+py -m flint serve --model llama3 --port 8000
+
+# Available endpoints:
+# GET  http://localhost:8000/v1/models
+# POST http://localhost:8000/v1/chat/completions  (streaming + non-streaming)
+```
+
+### `flint bench` — Benchmark Models
+
+Measures rough tokens/sec across multiple models.
+
+```bash
+py -m flint bench --models "llama3,qwen2.5:0.5b,phi3"
+```
+
+### `flint prompt` — Manage Prompt Templates
+
+Save and reuse prompt templates stored in `~/.flint/prompts/`.
+
+```bash
+# Save a template to the registry
+py -m flint prompt save my-template ./templates/review.txt
+
+# Run a saved template
+py -m flint prompt run my-template --model llama3 --var lang=Python
+```
+
+---
+
+## Desktop App
+
+A PySide6 GUI with chat history persistence, RAG toggle, file attachment, and multi-session sidebar.
+
+```bash
+# From the project root:
+python run_desktop.py
+```
+
+Features:
+- 🔍 **Model selector** — automatically detects all models across all running backends
+- 🧠 **Codebase Memory toggle** — attach RAG context from your indexed vector store
+- 📎 **File attach** — read any local file into the prompt context
+- 🗂 **Chat History** — sessions persist in `~/.flint/chat_history.db` (SQLite)
+- 🎨 **Dark ChatGPT-style UI** with markdown + code block rendering
+
+---
 
 ## Configuration
 
-Flint stores config at `~/.config/flint/config.toml` (global) or `.flint/config.toml` (per-project).
+Flint reads `~/.flint/config.toml` on startup. All values are optional.
 
 ```toml
-[flint]
-backend = "ollama"           # ollama | lmstudio
-model   = "codellama:13b"
-host    = "http://localhost:11434"
+[backends]
+ollama_port   = 11434   # default
+lmstudio_port = 1234    # default
 
-[flint.memory]
-enabled    = true
-chunk_size = 512
-embed_model = "nomic-embed-text"
-db_path    = ".flint/memory/chromadb"
-
-[flint.history]
-db_path  = ".flint/history.db"
-max_msgs = 1000
-
-[flint.app]
-theme = "dark"               # dark | light
+[defaults]
+model = "llama3"        # used by flint serve when no --model is given
 ```
 
-**Initialize config for a project:**
-
-```bash
-$ flint config init
-
-[✓] created .flint/config.toml
-[✓] added .flint/ to .gitignore
-```
+---
 
 ## Development
 
@@ -213,59 +208,63 @@ $ flint config init
 git clone https://github.com/SmitBdangar/Flint.git
 cd Flint
 
-python -m venv .venv
-source .venv/bin/activate       # windows: .venv\Scripts\activate
+py -m venv .venv
+.venv\Scripts\activate      # Windows
+# source .venv/bin/activate  # macOS / Linux
 
-pip install -e ".[dev,desktop]"
+py -m pip install -e ".[dev,desktop]"
 ```
 
-**Run tests**
+**Run tests:**
 
 ```bash
-pytest
-
-pytest --cov=flint --cov-report=term-missing tests/
+py -m pytest tests/ -v
 ```
 
 ```
-========================= test session starts ==========================
-platform linux -- Python 3.12.2, pytest-8.1.0
-collected 38 items
+============================= test session starts =============================
+collected 4 items
 
-tests/test_core/test_agent.py  ..............    [ 36%]
-tests/test_core/test_memory.py ............      [ 68%]
-tests/test_core/test_diff.py   ............      [100%]
+tests/test_core/test_basic.py::test_model_initialization PASSED          [ 25%]
+tests/test_core/test_basic.py::test_prompt_formatting    PASSED          [ 50%]
+tests/test_core/test_basic.py::test_chain_add            PASSED          [ 75%]
+tests/test_core/test_prompt.py::test_prompt_missing_key  PASSED          [100%]
 
------------ coverage: platform linux, python 3.12.2 -----------
-Name                        Stmts   Miss  Cover
------------------------------------------------
-src/flint/core/agent.py        58      0   100%
-src/flint/core/diff.py         34      0   100%
-src/flint/memory/indexer.py    47      2    96%
-src/flint/memory/store.py      29      0   100%
------------------------------------------------
-TOTAL                         168      2    98%
-
-========================= 38 passed in 1.04s ==========================
+============================== 4 passed in 0.03s ==============================
 ```
+
+---
+
+## Architecture
+
+```
+Flint/
+├── src/flint/
+│   ├── backends/        # Ollama, LM Studio, llama.cpp HTTP clients
+│   ├── core/            # Model, Prompt, Chain abstractions
+│   ├── memory/          # ChromaDB vector store + tiktoken chunker
+│   └── cli/             # Typer CLI commands
+├── desktop/app/         # PySide6 GUI (main, ui_main, worker, history)
+├── run_desktop.py       # Root-level launcher for the desktop app
+└── pyproject.toml
+```
+
+All backends communicate over localhost HTTP — **no cloud calls, no telemetry, no API keys.**
+
+---
 
 ## Contributing
 
-```bash
-# 1. fork & clone
-git clone https://github.com/YOUR_USERNAME/Flint.git
+1. Fork & clone the repo
+2. Branch: `git checkout -b feat/your-feature`
+3. Code + test: `py -m pytest`
+4. Lint: `black . && isort .`
+5. Open a PR
 
-# 2. branch
-git checkout -b feat/your-feature
+Bug reports and feature requests welcome. Open an issue first for large changes.
 
-# 3. code + test
-pytest
+---
 
-# 4. lint
-ruff check .
+## License
 
-# 5. PR
-git push origin feat/your-feature
-```
-
-Open an issue first for large changes. Bug reports and feature requests welcome.
+MIT © Flint Community
